@@ -1,0 +1,72 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // Private profile (email, join date): sirf us user ko dikhta hai.
+    // App ka owner Firebase console me sabka data dekh sakta hai.
+    match /users/{uid} {
+      allow read: if request.auth != null && request.auth.uid == uid;
+      // username wahi ho sakta hai jo usne usernames me claim kiya hai
+      allow create: if request.auth != null && request.auth.uid == uid
+                    && get(/databases/$(database)/documents/usernames/$(request.resource.data.username)).data.uid == request.auth.uid;
+      allow update: if request.auth != null && request.auth.uid == uid
+                    && request.resource.data.username == resource.data.username;
+    }
+
+    // username -> uid. Naya naam sirf ek baar ban sakta hai (update/delete band), isliye username unique rehta hai.
+    match /usernames/{name} {
+      allow read: if request.auth != null;
+      allow create: if request.auth != null
+                    && request.resource.data.uid == request.auth.uid
+                    && name.matches('^[a-z0-9_.]{3,20}$');
+      allow update, delete: if false;
+    }
+
+    // Public profile (naam, username, bio, pic): sab members dekh sakte hain, badal sirf apna sakte hain.
+    match /profiles/{uid} {
+      allow read: if request.auth != null;
+      allow create: if request.auth != null && request.auth.uid == uid
+                    && request.resource.data.username == get(/databases/$(database)/documents/users/$(uid)).data.username;
+      allow update: if request.auth != null && request.auth.uid == uid
+                    && request.resource.data.username == resource.data.username;
+    }
+
+    // Online / offline: har user sirf apna status likh sakta hai, sab padh sakte hain.
+    match /presence/{uid} {
+      allow read: if request.auth != null;
+      allow write: if request.auth != null && request.auth.uid == uid;
+    }
+
+    // Follow list: har user sirf apni list badal sakta hai.
+    match /follows/{uid} {
+      allow read: if request.auth != null;
+      allow write: if request.auth != null && request.auth.uid == uid;
+    }
+
+    match /chats/{chatId} {
+      // resource == null matlab chat abhi bani nahi (app pehli baar kholne par check karti hai)
+      allow read: if request.auth != null
+                  && (resource == null || request.auth.uid in resource.data.members);
+      allow create: if request.auth != null
+                    && request.auth.uid in request.resource.data.members
+                    && request.resource.data.members.size() == 2
+                    && request.resource.data.blockedBy.size() == 0;
+      // Dono members block/unblock aur last message update kar sakte hain, members nahi badal sakte
+      allow update: if request.auth != null
+                    && request.auth.uid in resource.data.members
+                    && request.resource.data.members == resource.data.members;
+
+      match /messages/{mid} {
+        // Sirf chat ke 2 members messages padh sakte hain
+        allow read: if request.auth != null
+                    && request.auth.uid in get(/databases/$(database)/documents/chats/$(chatId)).data.members;
+        // Bhej sirf member sakta hai, apne naam se, aur tab jab koi block na ho
+        allow create: if request.auth != null
+                      && request.auth.uid in get(/databases/$(database)/documents/chats/$(chatId)).data.members
+                      && get(/databases/$(database)/documents/chats/$(chatId)).data.blockedBy.size() == 0
+                      && request.resource.data.from == request.auth.uid;
+        allow delete: if request.auth != null && resource.data.from == request.auth.uid;
+      }
+    }
+  }
+}

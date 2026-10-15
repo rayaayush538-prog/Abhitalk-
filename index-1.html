@@ -1,0 +1,266 @@
+<!DOCTYPE html>
+<!-- Baatein (live): asli members, online/offline status, followers/following aur real-time chat.
+     Ek hi file: HTML + CSS + JS. Backend = Firebase (login + Firestore database). Setup ke liye SETUP.md padho. -->
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Baatein</title>
+<style>
+/* Colors ek jagah. Badalna ho to yahin badlo */
+:root{--bg:#f3f5f7;--panel:#fff;--ink:#14191f;--mut:#667180;--line:#e1e5ea;--mine:#0e7c6b;--mi:#fff;--soft:#e4f1ee;--danger:#c62f3d;--on:#1a9d5a;color-scheme:light;
+  box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}
+@media (prefers-color-scheme:dark){:root{--bg:#121619;--panel:#1b2126;--ink:#eef1f4;--mut:#93a0ae;--line:#2a323a;--mine:#17a38c;--mi:#0c1412;--soft:#1f3b36;--danger:#ff6b78;--on:#3ddc84;color-scheme:dark}}
+*{box-sizing:border-box}
+html,body{height:100%;margin:0}
+body{background:var(--bg);color:var(--ink);font:16px/1.45 system-ui,-apple-system,"Segoe UI",Roboto,Arial,sans-serif;display:flex;flex-direction:column;max-width:560px;margin:0 auto}
+button,input{font:inherit;color:inherit}
+button{cursor:pointer;border:0;background:none;padding:0;text-align:left}
+:focus-visible{outline:2px solid var(--mine);outline-offset:2px}
+.mid{margin:auto;padding:24px;max-width:420px;width:100%}
+h1{font-size:34px;margin:0 0 6px;letter-spacing:-.02em}
+.top{padding:12px 16px;background:var(--panel);border-bottom:1px solid var(--line);display:flex;justify-content:space-between;align-items:center;gap:8px}
+.logo{font-weight:800;font-size:22px;letter-spacing:-.02em}
+main{flex:1;overflow-y:auto;padding:8px 16px 20px}
+main.cm{display:flex;flex-direction:column;padding:0;overflow:hidden}
+nav{display:flex;background:var(--panel);border-top:1px solid var(--line)}
+nav button{flex:1;padding:13px 0;text-align:center;color:var(--mut);font-weight:600}
+nav button[aria-current="true"]{color:var(--mine)}
+.mut,small{color:var(--mut)}
+.on{color:var(--on);font-weight:700}
+.av{width:42px;height:42px;border-radius:50%;display:grid;place-items:center;color:#fff;font-weight:700;flex:none;background-size:cover;background-position:center;position:relative}
+.av.big{width:84px;height:84px;font-size:32px}
+.av i{position:absolute;right:-1px;bottom:-1px;width:12px;height:12px;border-radius:50%;background:var(--on);border:2px solid var(--panel)}
+.person{display:flex;gap:12px;align-items:center;padding:11px 0;border-bottom:1px solid var(--line);width:100%}
+.person>div:nth-child(2){flex:1;min-width:0}
+.person small{display:block;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.btn{background:var(--mine);color:var(--mi);border-radius:10px;padding:9px 14px;font-weight:700;text-align:center}
+.btn.alt{background:var(--soft);color:var(--ink)}
+.go{margin-top:14px;width:100%;padding:13px}
+.act{color:var(--danger);font-weight:700;padding:6px 8px}
+.act.ok{color:var(--mine)}
+.chat{flex:1;overflow-y:auto;padding:14px 16px;display:flex;flex-direction:column;gap:8px}
+.m{max-width:82%;align-self:flex-start}
+.m.me{align-self:flex-end}
+.b{background:var(--panel);border:1px solid var(--line);padding:8px 12px;border-radius:16px 16px 16px 4px;overflow-wrap:anywhere}
+.me .b{background:var(--mine);border-color:var(--mine);color:var(--mi);border-radius:16px 16px 4px 16px}
+.t{font-size:11px;opacity:.7;margin-left:8px}
+.del{font-size:11px;opacity:.7;margin-left:8px;text-decoration:underline}
+.empty{margin:auto;text-align:center;color:var(--mut);padding:0 20px}
+.comp{display:flex;gap:8px;padding:10px 12px;background:var(--panel);border-top:1px solid var(--line)}
+.comp input{flex:1;border:1px solid var(--line);background:var(--bg);border-radius:22px;padding:11px 16px}
+.send{background:var(--mine);color:var(--mi);border-radius:22px;padding:10px 20px;font-weight:700;text-align:center}
+.note{padding:10px 16px;background:var(--panel);border-top:1px solid var(--line);color:var(--danger);font-size:14px}
+.stats{display:flex;gap:26px;margin:12px 0}
+.stats button{text-align:center}
+.stats b{display:block;font-size:18px}
+.row{display:flex;gap:8px}
+.in{width:100%;border:1px solid var(--line);background:var(--panel);border-radius:10px;padding:10px 12px}
+label{display:block;font-size:14px;font-weight:700;margin:14px 0 6px}
+.hd{display:flex;align-items:center;gap:16px;padding:14px 0}
+.sec{font-size:13px;color:var(--mut);margin:12px 0}
+.err{color:var(--danger);font-size:14px;min-height:20px;margin-top:10px}
+.link{color:var(--mine);font-weight:700;text-decoration:underline}
+#toast{position:fixed;left:50%;bottom:calc(76px + env(safe-area-inset-bottom,0px));transform:translateX(-50%);background:var(--ink);color:var(--bg);padding:8px 14px;border-radius:20px;font-size:13px;opacity:0;pointer-events:none;transition:opacity .2s}
+#toast.on2{opacity:1}
+</style>
+</head>
+<body>
+<div class="top" id="top" hidden></div>
+<main id="main"></main>
+<nav id="nav" hidden></nav>
+<div id="toast" role="status"></div>
+
+<script type="module">
+/* ================= 1. FIREBASE SETUP =================
+   Config Firebase console se copy karke paste karni hai (SETUP.md me steps hain). */
+import {initializeApp} from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
+import {getAuth,onAuthStateChanged,createUserWithEmailAndPassword,signInWithEmailAndPassword,signOut} from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
+import {getFirestore,doc,getDoc,setDoc,updateDoc,addDoc,deleteDoc,collection,query,where,orderBy,limit,onSnapshot,arrayUnion,arrayRemove} from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
+
+const cfg={apiKey:"PASTE_API_KEY",authDomain:"PASTE_AUTH_DOMAIN",projectId:"PASTE_PROJECT_ID",appId:"PASTE_APP_ID"};
+
+const $=s=>document.querySelector(s),main=$('#main');
+const esc=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const hm=t=>new Date(t).toLocaleTimeString([], {hour:'2-digit',minute:'2-digit'});
+const say=m=>{const t=$('#toast');t.textContent=m;t.classList.add('on2');clearTimeout(say.t);say.t=setTimeout(()=>t.classList.remove('on2'),2200)};
+if(cfg.apiKey.startsWith('PASTE')){
+  main.innerHTML='<div class="mid"><h1>Baatein</h1><p>Setup baaki hai. <b>SETUP.md</b> ke steps follow karke Firebase config is file me paste karo.</p></div>';
+  throw new Error('Firebase config missing');
+}
+const app=initializeApp(cfg),auth=getAuth(app),db=getFirestore(app);   // Firebase start: login + database
+
+/* ================= 2. STATE =================
+   P    = sab members ke public profile (naam, username, bio, pic)
+   pres = kaun kab last active tha (online/offline ke liye)
+   fing = jinhe main follow karta hoon, fers = jo mujhe follow karte hain */
+let me=null,P={},pres={},fing=[],fers=[],chats=[],v='chats',peer=null,chatDoc=null,msgs=[],subs=[],draft='',ptab='followers',edit=false,tmpPic,mode='login',timers=[];
+const UN=/^[a-z0-9_.]{3,20}$/;
+const cid=(a,b)=>[a,b].sort().join('_');                        // chat ki id: dono uid sort karke
+const stop=()=>{subs.forEach(f=>f());subs=[];timers.forEach(clearInterval);timers=[]};
+const col=u=>'#'+[...u].reduce((h,c)=>(h*31+c.charCodeAt(0))>>>0,7).toString(16).padStart(6,'0').slice(0,6);
+const av=(u,big)=>{const p=P[u]||{};return `<span class="av ${big?'big':''}" style="${p.pic?`background-image:url(${p.pic})`:`background:${col(u)}`}">${p.pic?'':esc((p.name||p.username||'?')[0].toUpperCase())}${online(u)?'<i></i>':''}</span>`};
+/* Online tab maana jata hai jab pichle 75 second me heartbeat aayi ho */
+const online=u=>{const p=pres[u];return !!p&&p.on!==false&&Date.now()-p.t<75000};
+const lastSeen=t=>new Date(t).toDateString()===new Date().toDateString()?hm(t):new Date(t).toLocaleDateString([], {day:'numeric',month:'short'})+' '+hm(t);
+const status=u=>online(u)?'<span class="on">online</span>':pres[u]?`offline, last seen ${lastSeen(pres[u].t)}`:'offline';
+const nm=u=>(P[u]&&(P[u].name||P[u].username))||'Member';
+const err=m=>{const e=$('#err');if(e)e.textContent=m};
+function shrink(file,max,cb){const r=new FileReader();r.onload=()=>{const im=new Image();im.onload=()=>{const k=Math.min(1,max/Math.max(im.width,im.height)),c=document.createElement('canvas');c.width=Math.round(im.width*k);c.height=Math.round(im.height*k);c.getContext('2d').drawImage(im,0,0,c.width,c.height);cb(c.toDataURL('image/jpeg',.7))};im.src=r.result};r.readAsDataURL(file)}
+
+/* ================= 3. LOGIN / SIGNUP ================= */
+onAuthStateChanged(auth,async u=>{
+  stop();me=u;
+  if(!u){$('#top').hidden=$('#nav').hidden=true;return gate()}
+  const s=await getDoc(doc(db,'profiles',u.uid));
+  s.exists()?start():gate();
+});
+function gate(){
+  if(!me)main.innerHTML=`<div class="mid"><h1>Baatein</h1><p class="mut">Chat with real people. Find them by username.</p>
+    <label for="em">Email</label><input class="in" id="em" type="email" autocomplete="email">
+    <label for="pw">Password (6+ characters)</label><input class="in" id="pw" type="password" autocomplete="${mode==='login'?'current-password':'new-password'}">
+    <button class="btn go" data-a="auth">${mode==='login'?'Log in':'Create account'}</button><div class="err" id="err" role="alert"></div>
+    <button class="link" data-a="mode">${mode==='login'?'New here? Create an account':'Have an account? Log in'}</button></div>`;
+  else main.innerHTML=`<div class="mid"><h1>Your profile</h1><p class="mut">Other members see your name and username. Your email stays private.</p>
+    <label for="nn">Name</label><input class="in" id="nn" maxlength="40" autocomplete="name">
+    <label for="un">Username (cannot be changed later)</label><input class="in" id="un" maxlength="20" placeholder="letters, numbers, _ or ." autocapitalize="none" autocomplete="off">
+    <button class="btn go" data-a="claim">Continue</button><div class="err" id="err" role="alert"></div></div>`;
+}
+async function doAuth(){
+  const em=$('#em').value.trim(),pw=$('#pw').value;err('');
+  try{mode==='login'?await signInWithEmailAndPassword(auth,em,pw):await createUserWithEmailAndPassword(auth,em,pw)}
+  catch(e){err(String(e.code||e).replace('auth/','').replace(/-/g,' '))}
+}
+/* Username unique kaise rehta hai: usernames/<naam> doc sirf EK baar ban sakta hai (rules me update band hai) */
+async function claim(){
+  const n=$('#nn').value.trim(),un=$('#un').value.trim().toLowerCase();
+  if(n.length<2)return err('Enter your name.');
+  if(!UN.test(un))return err('Username: 3 to 20 letters, numbers, _ or .');
+  try{
+    await setDoc(doc(db,'usernames',un),{uid:me.uid});
+    await setDoc(doc(db,'users',me.uid),{username:un,email:me.email,createdAt:Date.now()});            // private: sirf tum (aur owner console me)
+    await setDoc(doc(db,'profiles',me.uid),{username:un,name:n,bio:'',pic:null,createdAt:Date.now()});   // public profile
+    start();
+  }catch(e){err('That username is taken. Try another.')}
+}
+
+/* ================= 4. START: live data sunna =================
+   Har onSnapshot database ka live listener hai: koi naya message/member/status aate hi screen badal jati hai */
+function start(){
+  v='chats';edit=false;
+  $('#top').hidden=$('#nav').hidden=false;
+  subs.push(onSnapshot(collection(db,'profiles'),s=>{P={};s.docs.forEach(d=>P[d.id]=d.data());refresh()}));
+  subs.push(onSnapshot(collection(db,'presence'),s=>{pres={};s.docs.forEach(d=>pres[d.id]=d.data());refresh()}));
+  subs.push(onSnapshot(doc(db,'follows',me.uid),d=>{fing=(d.exists()&&d.data().following)||[];refresh()}));
+  subs.push(onSnapshot(query(collection(db,'follows'),where('following','array-contains',me.uid)),s=>{fers=s.docs.map(d=>d.id);refresh()}));
+  subs.push(onSnapshot(query(collection(db,'chats'),where('members','array-contains',me.uid)),s=>{
+    chats=s.docs.map(d=>({id:d.id,...d.data()})).filter(c=>c.updatedAt>0).sort((a,b)=>b.updatedAt-a.updatedAt);refresh()}));
+  /* Presence: har 40 second me "main online hoon" likhte hain (sirf jab app khula ho) */
+  const beat=on=>setDoc(doc(db,'presence',me.uid),{t:Date.now(),on}).catch(()=>{});
+  beat(true);
+  timers.push(setInterval(()=>{if(!document.hidden)beat(true)},40000));
+  timers.push(setInterval(refresh,20000));                       // status text taaza rakhne ke liye
+  const vis=()=>beat(!document.hidden);
+  document.addEventListener('visibilitychange',vis);addEventListener('pagehide',()=>beat(false));
+  subs.push(()=>document.removeEventListener('visibilitychange',vis));
+  render();
+}
+function refresh(){
+  if(!me||edit)return;
+  if(v==='chat'){head();if(msgs.length===0)paintChat()}else render();
+}
+
+/* ================= 5. SCREENS ================= */
+const person=u=>{const f=fing.includes(u);return `<div class="person">${av(u)}<div><b>${esc(nm(u))}</b><small>@${esc((P[u]||{}).username)}, ${status(u)}</small></div>
+  <button class="btn alt" data-a="open" data-u="${u}">Message</button>
+  <button class="btn ${f?'alt':''}" data-a="fol" data-u="${u}">${f?'Following':fers.includes(u)?'Follow back':'Follow'}</button></div>`};
+function screen(){
+  if(v==='chats')return chats.length?chats.map(c=>{const o=c.members.find(x=>x!==me.uid);
+    return `<button class="person" data-a="open" data-u="${o}">${av(o)}<div><b>${esc(nm(o))}</b><small>${c.lastFrom===me.uid?'You: ':''}${esc(c.last)}</small></div><small>${hm(c.updatedAt)}</small></button>`}).join('')
+    :'<p class="mut">No chats yet. Open the People tab to find members and tap Message.</p>';
+  if(v==='people'){
+    const L=Object.keys(P).filter(u=>u!==me.uid).sort((a,b)=>(online(b)-online(a))||nm(a).localeCompare(nm(b)));
+    return (L.length?L.map(person).join(''):'<p class="mut">No other members yet. Share the app link from the Profile tab.</p>');
+  }
+  const m=P[me.uid]||{};
+  if(edit)return `<div style="text-align:center;padding-top:14px">${tmpPic!==undefined?`<span class="av big" style="${tmpPic?`background-image:url(${tmpPic})`:`background:${col(me.uid)}`}"></span>`:av(me.uid,true)}</div>
+   <label for="pp">Profile photo</label><input type="file" accept="image/*" id="pp">
+   <label for="en">Name</label><input class="in" id="en" maxlength="40" value="${esc(m.name)}">
+   <label for="eb">Bio</label><input class="in" id="eb" maxlength="100" value="${esc(m.bio)}">
+   <div class="row" style="margin-top:16px"><button class="btn" data-a="sv">Save</button><button class="btn alt" data-a="cx">Cancel</button></div>`;
+  const L=ptab==='followers'?fers:fing;
+  return `<div class="hd">${av(me.uid,true)}<div><b style="font-size:20px">${esc(m.name)}</b><br><span class="mut">@${esc(m.username)}</span>${m.bio?`<br>${esc(m.bio)}`:''}</div></div>
+   <div class="stats"><button data-a="pt" data-v="followers"><b>${fers.length}</b>Followers</button><button data-a="pt" data-v="following"><b>${fing.length}</b>Following</button></div>
+   <div class="row"><button class="btn alt" data-a="ed">Edit profile</button><button class="btn alt" data-a="invite">Invite friends</button></div>
+   <p class="sec">${ptab==='followers'?'People who follow you':'People you follow'}</p>`+(L.filter(u=>P[u]).map(person).join('')||'<p class="mut">Nobody here yet.</p>')
+   +'<button class="btn go" style="background:var(--danger);color:#fff" data-a="out">Log out</button>';
+}
+function render(){
+  const m=main;m.className=v==='chat'?'cm':'';
+  $('#top').innerHTML=v==='chat'?`<button class="act ok" data-a="tab" data-v="chats">Back</button><div style="flex:1"><b id="pn"></b><br><small id="st"></small></div><button class="act" id="blk" data-a="blk">Block</button>`:'<span class="logo">Baatein</span>';
+  m.innerHTML=v==='chat'?'<div class="chat" id="chat"></div><div id="foot"></div>':screen();
+  $('#nav').style.display=v==='chat'?'none':'flex';
+  $('#nav').innerHTML=[['chats','Chats'],['people','People'],['profile','Profile']].map(([k,l])=>`<button data-a="tab" data-v="${k}" aria-current="${v===k}">${l}</button>`).join('');
+  if(v==='chat'){head();paintChat()}
+  const pp=$('#pp');if(pp)pp.onchange=e=>{if(e.target.files[0])shrink(e.target.files[0],160,d=>{tmpPic=d;const n=$('#en').value,b=$('#eb').value;render();$('#en').value=n;$('#eb').value=b})};
+}
+
+/* ================= 6. CHAT ================= */
+async function openChat(u){
+  stopChat();peer=u;msgs=[];chatDoc=null;draft='';v='chat';
+  const ref=doc(db,'chats',cid(me.uid,u));
+  if(!(await getDoc(ref)).exists())await setDoc(ref,{members:[me.uid,u],blockedBy:[],updatedAt:0,last:'',lastFrom:''});
+  render();
+  chatSubs.push(onSnapshot(ref,d=>{chatDoc=d.data();paintChat()}));
+  chatSubs.push(onSnapshot(query(collection(ref,'messages'),orderBy('ts'),limit(300)),d=>{msgs=d.docs.map(x=>({id:x.id,...x.data()}));paintChat()}));
+}
+let chatSubs=[];const stopChat=()=>{chatSubs.forEach(f=>f());chatSubs=[]};
+const head=()=>{const a=$('#pn'),s=$('#st');if(a)a.textContent=nm(peer);if(s)s.innerHTML=status(peer)};
+function paintChat(){
+  const c=$('#chat');if(!c||!chatDoc)return;
+  const near=c.scrollHeight-c.scrollTop-c.clientHeight<140;
+  c.innerHTML=msgs.length?msgs.map(m=>{const mine=m.from===me.uid;return `<div class="m ${mine?'me':''}"><div class="b">${esc(m.text)}<span class="t">${hm(m.ts)}</span>${mine?`<button class="del" data-a="del" data-id="${m.id}">Delete</button>`:''}</div></div>`}).join(''):`<div class="empty">Say hello to ${esc(nm(peer))}.</div>`;
+  if(near||!c.dataset.f){c.scrollTop=c.scrollHeight;c.dataset.f=1}
+  const b=chatDoc.blockedBy||[],mineB=b.includes(me.uid),k=b.length?(mineB?'mine':'theirs'):'ok',f=$('#foot');
+  $('#blk').textContent=mineB?'Unblock':'Block';
+  if(f.dataset.k!==k){f.dataset.k=k;
+    f.innerHTML=k==='ok'?'<div class="comp"><input id="msg" placeholder="Message" maxlength="1000" autocomplete="off" aria-label="Message"><button class="send" data-a="send">Send</button></div>':`<div class="note">${k==='mine'?'You blocked this member. Unblock to chat again.':'You can no longer message this member.'}</div>`;
+    const i=$('#msg');if(i){i.value=draft;i.oninput=()=>draft=i.value;i.onkeydown=e=>{if(e.key==='Enter')send()}}}
+}
+async function send(){
+  const t=draft.trim();if(!t)return;draft='';$('#msg').value='';
+  const ref=doc(db,'chats',cid(me.uid,peer));
+  try{await addDoc(collection(ref,'messages'),{from:me.uid,text:t,ts:Date.now()});
+      await updateDoc(ref,{last:t.slice(0,60),lastFrom:me.uid,updatedAt:Date.now()})}
+  catch(e){draft=t;$('#msg').value=t;say('Could not send. Try again.')}
+}
+async function invite(){
+  const url=location.href.split('#')[0];
+  try{if(navigator.share){await navigator.share({title:'Baatein',text:'Chat with me on Baatein',url});return}}catch(e){if(e&&e.name==='AbortError')return}
+  try{await navigator.clipboard.writeText(url);say('Link copied')}catch(e){prompt('Copy this link',url)}
+}
+
+/* ================= 7. CLICKS ================= */
+document.addEventListener('click',async e=>{
+  const b=e.target.closest('[data-a]');if(!b)return;const a=b.dataset.a,u=b.dataset.u;
+  if(a==='mode'){mode=mode==='login'?'signup':'login';gate()}
+  else if(a==='auth')doAuth();
+  else if(a==='claim')claim();
+  else if(a==='tab'){if(v==='chat')stopChat();v=b.dataset.v;edit=false;render()}
+  else if(a==='open')openChat(u);
+  else if(a==='fol'){try{await setDoc(doc(db,'follows',me.uid),{following:fing.includes(u)?arrayRemove(u):arrayUnion(u)},{merge:true})}catch(x){say('Could not update')}}
+  else if(a==='send')send();
+  else if(a==='del'){try{await deleteDoc(doc(db,'chats',cid(me.uid,peer),'messages',b.dataset.id))}catch(x){}}
+  else if(a==='blk'){const mineB=(chatDoc.blockedBy||[]).includes(me.uid);   // block = chat me meri uid blockedBy me daalna
+    await updateDoc(doc(db,'chats',cid(me.uid,peer)),{blockedBy:mineB?arrayRemove(me.uid):arrayUnion(me.uid)})}
+  else if(a==='pt'){ptab=b.dataset.v;render()}
+  else if(a==='ed'){edit=true;tmpPic=undefined;render()}
+  else if(a==='cx'){edit=false;render()}
+  else if(a==='sv'){const n=$('#en').value.trim();if(!n)return say('Enter a name.');
+    try{await updateDoc(doc(db,'profiles',me.uid),{name:n,bio:$('#eb').value.trim(),...(tmpPic!==undefined?{pic:tmpPic}:{})});edit=false;render();say('Profile saved')}catch(x){say('Could not save')}}
+  else if(a==='invite')invite();
+  else if(a==='out'){try{await setDoc(doc(db,'presence',me.uid),{t:Date.now(),on:false})}catch(x){}signOut(auth)}
+});
+</script>
+</body>
+</html>
